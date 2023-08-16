@@ -20,7 +20,7 @@ class ColorThief
         return $result;
     }
 
-    public function img2hex($img, $default = 'ffffff'): array
+    public function img2hex($img, $default = 'ffffff'): string
     {
         if (!exif_imagetype($img)) {
             return $default;
@@ -44,18 +44,14 @@ class ColorThief
 
         $newImg = imagecreatetruecolor(1, 1);
 
-
         imagecopyresampled($newImg, $image, 0, 0, 0, 0, 1, 1, imagesx($image), imagesy($image));
 
         $hex = dechex(imagecolorat($newImg, 0, 0));
 
-        return [
-            'hex'  => strtoupper(str_pad($hex, 6, '0', STR_PAD_LEFT)),
-            'mime' => getimagesize($img)['mime'],
-        ];
+        return '#' . strtoupper(str_pad($hex, 6, '0', STR_PAD_LEFT));
     }
 
-    public function hex2rgb($colour, $split = false)
+    public function hex2rgb(string $colour, $split = false): false|array|string
     {
         if ($colour[0] == '#') {
             $colour = substr($colour, 1);
@@ -77,33 +73,30 @@ class ColorThief
             return ['r' => $r, 'g' => $g, 'b' => $b];
         }
 
-        return $r . ',' . $g . ',' . $b;
+        return $r . ' ' . $g . ' ' . $b;
     }
 
-    public function getContrastColor($hexColor)
+    public function getContrastColor(string $hexColor): string
     {
-        $blackColor    = "#000000";
-        $contrastRatio = 0;
-
         // hexColor RGB
         $R1 = hexdec(substr($hexColor, 1, 2));
         $G1 = hexdec(substr($hexColor, 3, 2));
         $B1 = hexdec(substr($hexColor, 5, 2));
 
         // Black RGB
-
+        $blackColor    = "#000000";
         $R2BlackColor = hexdec(substr($blackColor, 1, 2));
         $G2BlackColor = hexdec(substr($blackColor, 3, 2));
         $B2BlackColor = hexdec(substr($blackColor, 5, 2));
 
         // Calc contrast ratio
         $L1 = 0.2126 * pow($R1 / 255, 2.2) +
-            0.7152 * pow($G1 / 255, 2.2) +
-            0.0722 * pow($B1 / 255, 2.2);
+              0.7152 * pow($G1 / 255, 2.2) +
+              0.0722 * pow($B1 / 255, 2.2);
 
         $L2 = 0.2126 * pow($R2BlackColor / 255, 2.2) +
-            0.7152 * pow($G2BlackColor / 255, 2.2) +
-            0.0722 * pow($B2BlackColor / 255, 2.2);
+              0.7152 * pow($G2BlackColor / 255, 2.2) +
+              0.0722 * pow($B2BlackColor / 255, 2.2);
 
         if ($L1 > $L2) {
             $contrastRatio = (int)(($L1 + 0.05) / ($L2 + 0.05));
@@ -135,34 +128,49 @@ $imgs       = $colorThief->scan_d('img');
         border: 0;
         vertical-align: middle;
       }
+      body {
+          transition: background-color 0.8s ease;
+      }
     </style>
     <title>Demo - Color Thief</title>
 </head>
 <body>
 <h1 style="text-align:center;">Demo - Color Thief</h1>
 <div style="display:flex;flex-wrap:wrap;justify-content:center;">
-
     <?php
     foreach ($imgs as $img):
-
         $img2hex = $colorThief->img2hex('img/' . $img);
-        $rgb = $colorThief->hex2rgb($colorThief->img2hex('img/' . $img)['hex']);
-        $contrast = $colorThief->getContrastColor('#' . $img2hex['hex']);
-        ?>
-
-        <div style="margin:1.2rem;text-align:center;box-shadow:0 0 10px 5px rgb(<?= $rgb; ?>);background-color:#<?= $img2hex['hex']; ?>">
-            <img style="object-fit:cover;background-color:#<?= $img2hex['hex']; ?>" height="200" width="200" src="<?= 'img/' . $img ?>">
-            <div style="padding:2rem 0;">
-                <p>
-                    <span style="display:block;color: <?= $contrast; ?>">HEX: #<?= $img2hex['hex']; ?></span>
-                    <span style="display:block;color: <?= $contrast; ?>">RGB: <?= $rgb; ?></span>
-                    <span style="display:block;color: <?= $contrast; ?>">CONTRAST: <?= $contrast; ?></span>
-                    <span style="display:block;color: <?= $contrast; ?>">MIME: <?= $img2hex['mime']; ?></span>
-                </p>
-            </div>
+        $rgb = $colorThief->hex2rgb($colorThief->img2hex('img/' . $img));
+        $contrast = $colorThief->getContrastColor($img2hex);
+        $mime = getimagesize('img/' . $img)['mime'];
+    ?>
+    <div  style="margin:1.2rem;text-align:center;box-shadow:0 0 10px 5px rgb(<?= $rgb; ?>);background-color:<?= $img2hex; ?>" >
+        <img style="object-fit:cover;background-color:#<?= $img2hex; ?>" height="200" width="200" src="<?= 'img/' . $img ?>" alt="<?= $img2hex; ?>">
+        <div class="hover" style="padding:2rem 0;font-family: Tahoma, sans-serif" data-rgb="<?= $rgb; ?>">
+            <p>
+                <span style="display:block;color: <?= $contrast; ?>"><?= $img2hex; ?></span>
+                <span style="display:block;color: <?= $contrast; ?>"><?= 'rgb(' . $rgb . ')' ?></span>
+                <span style="display:block;color: <?= $contrast; ?>">Contrast: <?= $contrast; ?></span>
+                <span style="display:block;color: <?= $contrast; ?>">MIME: <?= $mime; ?></span>
+            </p>
         </div>
-
+    </div>
     <?php endforeach; ?>
 </div>
+<script>
+    const hoverElements = document.querySelectorAll('.hover');
+    const body = document.body;
+
+    hoverElements.forEach((element) => {
+        element.addEventListener('mouseover', (event) => {
+            const rgbValue = event.target.getAttribute('data-rgb');
+            body.style.backgroundColor = `rgb(${rgbValue})`;
+        });
+
+        element.addEventListener('mouseout', () => {
+            body.style.backgroundColor = '';
+        });
+    });
+</script>
 </body>
 </html>
